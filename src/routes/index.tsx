@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { motion, AnimatePresence, useInView, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, AnimatePresence, useInView, useMotionValue, useTransform, useScroll, useSpring, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import heroBottle from "@/assets/hero-bottle.png";
 import bottlesLineup from "@/assets/bottles-lineup.png";

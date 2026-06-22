@@ -50,7 +50,35 @@ function Navbar() {
 function Hero() {
   const [roleIdx, setRoleIdx] = useState(0);
   const heroRef = useRef<HTMLDivElement>(null);
-  const [parallax, setParallax] = useState({ x: 0, y: 0 });
+
+  // Mouse parallax via motion values (smoothed)
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const smx = useSpring(mx, { stiffness: 60, damping: 18, mass: 0.6 });
+  const smy = useSpring(my, { stiffness: 60, damping: 18, mass: 0.6 });
+
+  // Layer transforms (different depths)
+  const bottleX = useTransform(smx, (v) => v * 18);
+  const bottleY = useTransform(smy, (v) => v * 18);
+  const blobX = useTransform(smx, (v) => v * 40);
+  const blobY = useTransform(smy, (v) => v * 40);
+  const textFrontX = useTransform(smx, (v) => v * -10);
+  const textBackX = useTransform(smx, (v) => v * 8);
+  const tag1X = useTransform(smx, (v) => v * 30);
+  const tag1Y = useTransform(smy, (v) => v * 30);
+  const tag2X = useTransform(smx, (v) => v * -28);
+  const tag2Y = useTransform(smy, (v) => v * 22);
+  const tag3X = useTransform(smx, (v) => v * 24);
+  const tag3Y = useTransform(smy, (v) => v * -26);
+  const tag4X = useTransform(smx, (v) => v * -34);
+  const tag4Y = useTransform(smy, (v) => v * -22);
+
+  // Scroll parallax
+  const { scrollY } = useScroll();
+  const scrollBottle = useTransform(scrollY, [0, 800], [0, -120]);
+  const scrollBg = useTransform(scrollY, [0, 800], [0, 200]);
+  const scrollGiant = useTransform(scrollY, [0, 800], [0, -260]);
+  const scrollFade = useTransform(scrollY, [0, 600], [1, 0]);
 
   useEffect(() => {
     const id = setInterval(() => setRoleIdx((i) => (i + 1) % roles.length), 2500);
@@ -60,52 +88,182 @@ function Hero() {
   const onMove = (e: React.MouseEvent) => {
     const rect = heroRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 40;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 40;
-    setParallax({ x, y });
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
   };
+  const onLeave = () => { mx.set(0); my.set(0); };
 
   return (
-    <section id="top" ref={heroRef} onMouseMove={onMove} className="relative pt-28 pb-20 md:pt-36 md:pb-32 overflow-hidden bg-cream">
-      {/* blobs */}
-      <div
-        className="pointer-events-none absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full blur-3xl opacity-50"
-        style={{ background: "radial-gradient(circle, #E8730A55, transparent 70%)", transform: `translate(${parallax.x}px, ${parallax.y}px)` }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-40 -left-40 w-[600px] h-[600px] rounded-full blur-3xl opacity-40"
-        style={{ background: "radial-gradient(circle, #4A7C3F55, transparent 70%)", transform: `translate(${-parallax.x}px, ${-parallax.y}px)` }}
-      />
-      {/* dots */}
-      <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(#3D2B1F 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+    <section
+      id="top"
+      ref={heroRef}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className="relative min-h-screen pt-28 pb-16 md:pt-32 md:pb-24 overflow-hidden bg-cream"
+    >
+      {/* Soft dotted texture */}
+      <motion.div
+        style={{ y: scrollBg }}
+        className="absolute inset-0 opacity-[0.08] pointer-events-none"
+      >
+        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(#3D2B1F 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+      </motion.div>
 
-      <div className="relative max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
-        {/* LEFT */}
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur border border-earth/10 px-4 py-1.5 text-xs font-medium text-earth/80 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-green-brand animate-pulse" />
-            Food &amp; Beverage Consulting
-          </span>
-          <h1 className="mt-6 font-display font-bold text-earth leading-[0.95] text-6xl md:text-7xl lg:text-8xl">
-            The <span className="text-amber-brand italic">ART</span> of<br />
-            Delicious<br />
-            Innovations.
-          </h1>
-          <div className="mt-6 h-10 overflow-hidden relative text-2xl md:text-3xl font-display italic text-green-brand">
+      {/* Color blobs */}
+      <motion.div
+        style={{ x: blobX, y: blobY }}
+        className="pointer-events-none absolute top-[8%] left-[10%] w-[520px] h-[520px] rounded-full blur-3xl opacity-60"
+      >
+        <div className="w-full h-full rounded-full" style={{ background: "radial-gradient(circle, #E8730A66, transparent 70%)" }} />
+      </motion.div>
+      <motion.div
+        style={{ x: useTransform(smx, v => v * -36), y: useTransform(smy, v => v * -36) }}
+        className="pointer-events-none absolute bottom-[5%] right-[8%] w-[560px] h-[560px] rounded-full blur-3xl opacity-50"
+      >
+        <div className="w-full h-full rounded-full" style={{ background: "radial-gradient(circle, #4A7C3F55, transparent 70%)" }} />
+      </motion.div>
+
+      {/* Giant outline word in background */}
+      <motion.div
+        style={{ y: scrollGiant, opacity: scrollFade }}
+        aria-hidden
+        className="absolute inset-x-0 top-[18%] flex justify-center pointer-events-none select-none"
+      >
+        <span
+          className="font-display italic font-black leading-none text-[28vw] md:text-[22vw] tracking-tighter"
+          style={{
+            WebkitTextStroke: "1.5px rgba(61,43,31,0.12)",
+            color: "transparent",
+          }}
+        >
+          ART
+        </span>
+      </motion.div>
+
+      {/* Top badge */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative z-30 flex justify-center"
+      >
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-earth/10 px-4 py-1.5 text-xs font-medium text-earth/80 shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-green-brand animate-pulse" />
+          Food &amp; Beverage Consulting · Est. Excellence
+        </span>
+      </motion.div>
+
+      {/* CENTERPIECE: bottle + overlapping text */}
+      <div className="relative z-10 mt-8 md:mt-10 mx-auto max-w-[1200px] px-6">
+        <div className="relative flex items-center justify-center h-[560px] md:h-[680px]">
+
+          {/* Glow behind bottle */}
+          <motion.div
+            style={{ x: bottleX, y: bottleY }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div className="w-[460px] h-[460px] md:w-[560px] md:h-[560px] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, #E8730A99, transparent 65%)" }} />
+          </motion.div>
+
+          {/* TEXT BEHIND bottle: "The" + "of" */}
+          <motion.div
+            style={{ x: textBackX, y: scrollBg }}
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+          >
+            <div className="w-full flex items-start justify-between max-w-[900px]">
+              <motion.span
+                initial={{ opacity: 0, x: -40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.8 }}
+                className="font-display italic text-earth/80 text-5xl md:text-7xl lg:text-8xl leading-none -translate-y-4"
+              >
+                The
+              </motion.span>
+              <motion.span
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.35, duration: 0.8 }}
+                className="font-display italic text-earth/80 text-5xl md:text-7xl lg:text-8xl leading-none translate-y-2"
+              >
+                of
+              </motion.span>
+            </div>
+          </motion.div>
+
+          {/* THE BOTTLE */}
+          <motion.img
+            initial={{ opacity: 0, y: 60, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+            style={{ x: bottleX, y: useTransform([bottleY, scrollBottle], ([a, b]) => (a as number) + (b as number)) }}
+            src={heroBottle}
+            alt="Sea Buckthorn premium beverage bottle"
+            className="relative z-20 h-[520px] md:h-[680px] w-auto object-contain animate-float-bottle drop-shadow-[0_40px_60px_rgba(232,115,10,0.35)]"
+          />
+
+          {/* TEXT IN FRONT of bottle: ART (huge, splits across) & Delicious / Innovations */}
+          <motion.div
+            style={{ x: textFrontX }}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none"
+          >
+            {/* ART headline crossing the bottle */}
+            <motion.h1
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.45, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              className="font-display font-black italic text-amber-brand text-[26vw] md:text-[20vw] lg:text-[17rem] leading-[0.8] tracking-tighter mix-blend-multiply"
+              style={{ textShadow: "0 8px 30px rgba(232,115,10,0.35)" }}
+            >
+              ART
+            </motion.h1>
+          </motion.div>
+
+          {/* Bottom overlay text */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.8 }}
+            className="absolute z-30 bottom-2 md:bottom-6 left-1/2 -translate-x-1/2 text-center pointer-events-none"
+          >
+            <div className="font-display font-bold text-earth text-3xl md:text-5xl lg:text-6xl leading-tight">
+              Delicious <span className="italic text-green-brand">Innovations.</span>
+            </div>
+          </motion.div>
+
+          {/* Floating tags — parallax */}
+          <motion.div style={{ x: tag1X, y: tag1Y }} className="absolute z-40 top-10 left-2 md:left-8 animate-tag-1">
+            <Tag color="amber-brand">🌱 Sea Buckthorn</Tag>
+          </motion.div>
+          <motion.div style={{ x: tag2X, y: tag2Y }} className="absolute z-40 top-1/3 right-2 md:right-6 animate-tag-2">
+            <Tag color="green-brand">Natural Extract</Tag>
+          </motion.div>
+          <motion.div style={{ x: tag3X, y: tag3Y }} className="absolute z-40 bottom-28 left-0 md:left-6 animate-tag-3">
+            <Tag color="teal-brand">Craft Formula</Tag>
+          </motion.div>
+          <motion.div style={{ x: tag4X, y: tag4Y }} className="absolute z-40 bottom-16 right-0 md:right-8 animate-tag-1">
+            <Tag color="berry">✓ FSSAI Approved</Tag>
+          </motion.div>
+        </div>
+
+        {/* Subline + CTAs + stats */}
+        <div className="relative z-30 mt-6 md:mt-8 flex flex-col items-center text-center max-w-3xl mx-auto">
+          <div className="h-9 overflow-hidden relative text-xl md:text-2xl font-display italic text-green-brand">
             <AnimatePresence mode="wait">
               <motion.div
                 key={roleIdx}
-                initial={{ y: 30, opacity: 0 }}
+                initial={{ y: 24, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -30, opacity: 0 }}
+                exit={{ y: -24, opacity: 0 }}
                 transition={{ duration: 0.5 }}
-                className="absolute"
               >
                 {roles[roleIdx]}
               </motion.div>
             </AnimatePresence>
           </div>
-          <div className="mt-8 flex flex-wrap gap-4">
+          <p className="mt-3 text-base md:text-lg text-earth/70 max-w-xl">
+            From recipe to retail — we partner with founders, brands and manufacturers to craft food &amp; beverage products that win on taste, science and shelf.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-4 justify-center">
             <a href="#services" className="inline-flex items-center justify-center rounded-full bg-amber-brand px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-amber-brand/30 hover:scale-105 transition-transform">
               Explore Services
             </a>
@@ -113,40 +271,12 @@ function Hero() {
               Speak With Expert
             </a>
           </div>
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-earth/70">
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-earth/70 justify-center">
             <span><b className="text-earth font-display text-lg">100+</b> Products Launched</span>
             <span className="text-earth/30">|</span>
             <span><b className="text-earth font-display text-lg">60%</b> Revenue Growth</span>
             <span className="text-earth/30">|</span>
             <span><b className="text-earth font-display text-lg">40%</b> Cost Saved</span>
-          </div>
-        </motion.div>
-
-        {/* RIGHT */}
-        <div className="relative flex justify-center items-center min-h-[520px]">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-[420px] h-[420px] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, #E8730A88, transparent 65%)" }} />
-          </div>
-          <motion.img
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
-            src={heroBottle}
-            alt="Sea Buckthorn premium beverage bottle"
-            className="relative z-10 h-[520px] md:h-[600px] w-auto object-contain animate-float-bottle drop-shadow-2xl"
-          />
-          {/* floating tags */}
-          <div className="absolute top-10 left-2 z-20 animate-tag-1">
-            <Tag color="amber-brand">🌱 Sea Buckthorn</Tag>
-          </div>
-          <div className="absolute top-1/3 right-0 z-20 animate-tag-2">
-            <Tag color="green-brand">Natural Extract</Tag>
-          </div>
-          <div className="absolute bottom-24 left-0 z-20 animate-tag-3">
-            <Tag color="teal-brand">Craft Formula</Tag>
-          </div>
-          <div className="absolute bottom-6 right-4 z-20 animate-tag-1">
-            <Tag color="berry">✓ FSSAI Approved</Tag>
           </div>
         </div>
       </div>

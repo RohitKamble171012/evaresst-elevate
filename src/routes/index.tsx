@@ -47,7 +47,7 @@ function Navbar() {
   );
 }
 
-function Hero() {
+function HeroStage() {
   const [roleIdx, setRoleIdx] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,12 +60,20 @@ function Hero() {
   });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 80, damping: 24, mass: 0.4 });
 
-  // Intro overlay fades out as scroll starts; outro fades in near the end
-  const introOpacity = useTransform(smoothProgress, [0, 0.12], [1, 0]);
-  const introY = useTransform(smoothProgress, [0, 0.12], [0, -40]);
-  const outroOpacity = useTransform(smoothProgress, [0.78, 0.95], [0, 1]);
-  const outroY = useTransform(smoothProgress, [0.78, 0.95], [40, 0]);
-  const progressWidth = useTransform(smoothProgress, (v) => `${(v * 100).toFixed(2)}%`);
+  // Hero scrub region = first 45% of stage. Services fills the rest (still video bg).
+  const HERO_END = 0.45;
+  const videoProgress = useTransform(smoothProgress, [0, HERO_END], [0, 1], { clamp: true });
+
+  const introOpacity = useTransform(smoothProgress, [0, HERO_END * 0.25], [1, 0]);
+  const introY = useTransform(smoothProgress, [0, HERO_END * 0.25], [0, -40]);
+  const outroOpacity = useTransform(smoothProgress, [HERO_END * 0.72, HERO_END * 0.95], [0, 1]);
+  const outroY = useTransform(smoothProgress, [HERO_END * 0.72, HERO_END * 0.95], [40, 0]);
+
+  const videoOpacity = useTransform(smoothProgress, [HERO_END, HERO_END + 0.05, 1], [1, 0.5, 0.4]);
+  const videoScale = useTransform(smoothProgress, [HERO_END, 1], [1, 0.92]);
+  const tintOpacity = useTransform(smoothProgress, [HERO_END, HERO_END + 0.05], [0, 0.55]);
+  const hudOpacity = useTransform(smoothProgress, [0, HERO_END, HERO_END + 0.04], [1, 1, 0]);
+  const progressWidth = useTransform(videoProgress, (v) => `${(v * 100).toFixed(2)}%`);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -82,14 +90,14 @@ function Hero() {
 
   useEffect(() => {
     if (!duration) return;
-    const unsub = smoothProgress.on("change", (p) => {
+    const unsub = videoProgress.on("change", (p) => {
       const v = videoRef.current;
       if (!v) return;
       const t = Math.max(0, Math.min(duration - 0.001, p * duration));
       try { v.currentTime = t; } catch {}
     });
     return () => unsub();
-  }, [duration, smoothProgress]);
+  }, [duration, videoProgress]);
 
   useEffect(() => {
     const id = setInterval(() => setRoleIdx((i) => (i + 1) % roles.length), 2500);
@@ -97,14 +105,9 @@ function Hero() {
   }, []);
 
   return (
-    <section
-      id="top"
-      ref={stageRef}
-      className="relative bg-cream"
-      style={{ height: "500vh" }}
-    >
-      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-cream">
-        {/* Soft brand backdrop */}
+    <section id="top" ref={stageRef} className="relative bg-cream">
+      {/* Sticky video background spans hero + services */}
+      <div className="sticky top-0 h-screen w-full overflow-hidden z-0">
         <div className="pointer-events-none absolute inset-0 opacity-[0.08]"
              style={{ backgroundImage: "radial-gradient(#3D2B1F 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
         <div className="pointer-events-none absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-3xl"
@@ -112,24 +115,25 @@ function Hero() {
         <div className="pointer-events-none absolute -bottom-32 -right-32 w-[560px] h-[560px] rounded-full blur-3xl"
              style={{ background: "radial-gradient(circle, #4A7C3F44, transparent 70%)" }} />
 
-        {/* Scroll-scrubbed video — fills viewport, contains aspect */}
-        <video
+        <motion.video
           ref={videoRef}
           src={heroVideoAsset.url}
           muted
           playsInline
           preload="auto"
+          style={{ opacity: videoOpacity, scale: videoScale }}
           className="absolute inset-0 w-full h-full object-contain"
           aria-label="Sea Buckthorn bottle rotation"
         />
 
-        {/* Corner label */}
+        {/* Warm tint that fades in over services area */}
+        <motion.div style={{ opacity: tintOpacity }} className="pointer-events-none absolute inset-0 bg-cream-warm" />
+
         <div className="absolute top-6 left-6 md:top-8 md:left-10 z-10 flex items-center gap-2 text-[11px] md:text-xs uppercase tracking-[0.18em] text-earth/60">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-brand" />
           Sea Buckthorn · Scroll to rotate
         </div>
 
-        {/* Intro overlay (fades out on scroll) */}
         <motion.div
           style={{ opacity: introOpacity, y: introY }}
           className="absolute inset-x-0 top-0 z-10 pt-28 md:pt-32 pointer-events-none"
@@ -159,7 +163,6 @@ function Hero() {
           </div>
         </motion.div>
 
-        {/* Outro overlay (fades in near end) */}
         <motion.div
           style={{ opacity: outroOpacity, y: outroY }}
           className="absolute inset-x-0 top-0 z-10 pt-28 md:pt-32 pointer-events-none"
@@ -175,28 +178,25 @@ function Hero() {
           </div>
         </motion.div>
 
-        {/* Bottom HUD */}
-        <div className="absolute inset-x-0 bottom-0 z-10 px-6 md:px-10 pb-6 md:pb-8 flex items-center gap-4">
+        <motion.div
+          style={{ opacity: hudOpacity }}
+          className="absolute inset-x-0 bottom-0 z-10 px-6 md:px-10 pb-6 md:pb-8 flex items-center gap-4"
+        >
           <div className="flex-1 h-[2px] bg-earth/15 rounded-full overflow-hidden">
             <motion.div style={{ width: progressWidth }} className="h-full bg-amber-brand" />
           </div>
           <span className="text-[11px] md:text-xs uppercase tracking-[0.14em] text-earth/60 tabular-nums">
             {ready ? "Scroll" : "Loading…"}
           </span>
-        </div>
-
-        {/* Floating CTAs at very bottom of section */}
-        <motion.div
-          style={{ opacity: outroOpacity }}
-          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 flex flex-wrap gap-3 justify-center"
-        >
-          <a href="#services" className="inline-flex items-center justify-center rounded-full bg-amber-brand px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-brand/30 hover:scale-105 transition-transform">
-            Explore Services
-          </a>
-          <a href="#contact" className="inline-flex items-center justify-center rounded-full border-2 border-green-brand bg-white/80 backdrop-blur px-6 py-3 text-sm font-semibold text-green-brand hover:bg-green-brand hover:text-white transition-colors">
-            Speak With Expert
-          </a>
         </motion.div>
+      </div>
+
+      {/* Scroll driver for hero scrub */}
+      <div aria-hidden className="relative -mt-[100vh] pointer-events-none" style={{ height: "400vh" }} />
+
+      {/* Services renders OVER the still-sticky video */}
+      <div className="relative z-10">
+        <Services />
       </div>
     </section>
   );
@@ -213,12 +213,12 @@ const services = [
 
 function Services() {
   return (
-    <section id="services" className="py-24 md:py-32 bg-cream-warm">
+    <section id="services" className="py-24 md:py-32">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center max-w-3xl mx-auto">
-          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-brand">Our Services</span>
+          <span className="inline-block rounded-full bg-cream/80 backdrop-blur px-3 py-1 text-sm font-semibold uppercase tracking-[0.2em] text-amber-brand">Our Services</span>
           <h2 className="mt-3 text-4xl md:text-6xl font-bold text-earth">Crafted for Every Stage of Your Journey</h2>
-          <p className="mt-4 text-lg text-earth/70">From the first sip of an idea to nationwide shelves — we steward your product through every milestone.</p>
+          <p className="mt-4 text-lg text-earth/80 bg-cream/70 backdrop-blur-sm inline-block px-4 py-2 rounded-xl">From the first sip of an idea to nationwide shelves — we steward your product through every milestone.</p>
         </motion.div>
 
         <div className="mt-16 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -230,8 +230,8 @@ function Services() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
               whileHover={{ y: -6 }}
-              className="group bg-white rounded-2xl p-7 border-t-4 transition-shadow"
-              style={{ borderTopColor: s.color, boxShadow: "0 6px 24px -12px rgba(61,43,31,0.15)" }}
+              className="group bg-white/90 backdrop-blur-md rounded-2xl p-7 border-t-4 transition-shadow"
+              style={{ borderTopColor: s.color, boxShadow: "0 20px 40px -20px rgba(61,43,31,0.25)" }}
             >
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5" style={{ backgroundColor: `${s.color}1A`, color: s.color }}>
                 {s.icon}
@@ -535,8 +535,7 @@ function Landing() {
     <div className="min-h-screen bg-cream text-earth">
       <Navbar />
       <main>
-        <Hero />
-        <Services />
+        <HeroStage />
         <Expertise />
         <Showcase />
         <Workflow />

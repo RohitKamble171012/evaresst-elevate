@@ -535,8 +535,7 @@ function Landing() {
     <div className="min-h-screen bg-cream text-earth">
       <Navbar />
       <main>
-        <Hero />
-        <Services />
+        <HeroStage />
         <Expertise />
         <Showcase />
         <Workflow />

@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion, AnimatePresence, useInView, useMotionValue, useTransform, useScroll, useSpring, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import heroBottle from "@/assets/hero-bottle.png";
 import bottlesLineup from "@/assets/bottles-lineup.png";
 import colorfulDrinks from "@/assets/colorful-drinks.png";
 import foodSpread from "@/assets/food-spread.png";
 import logo from "@/assets/evaresst-logo.png";
+import heroVideoAsset from "@/assets/hero-rotation.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,246 +49,156 @@ function Navbar() {
 
 function Hero() {
   const [roleIdx, setRoleIdx] = useState(0);
-  const heroRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [duration, setDuration] = useState(0);
+  const [ready, setReady] = useState(false);
 
-  // Mouse parallax via motion values (smoothed)
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const smx = useSpring(mx, { stiffness: 60, damping: 18, mass: 0.6 });
-  const smy = useSpring(my, { stiffness: 60, damping: 18, mass: 0.6 });
+  const { scrollYProgress } = useScroll({
+    target: stageRef,
+    offset: ["start start", "end end"],
+  });
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 80, damping: 24, mass: 0.4 });
 
-  // Layer transforms (different depths)
-  const bottleX = useTransform(smx, (v) => v * 18);
-  const bottleY = useTransform(smy, (v) => v * 18);
-  const blobX = useTransform(smx, (v) => v * 40);
-  const blobY = useTransform(smy, (v) => v * 40);
-  const textFrontX = useTransform(smx, (v) => v * -10);
-  const textBackX = useTransform(smx, (v) => v * 8);
-  const tag1X = useTransform(smx, (v) => v * 30);
-  const tag1Y = useTransform(smy, (v) => v * 30);
-  const tag2X = useTransform(smx, (v) => v * -28);
-  const tag2Y = useTransform(smy, (v) => v * 22);
-  const tag3X = useTransform(smx, (v) => v * 24);
-  const tag3Y = useTransform(smy, (v) => v * -26);
-  const tag4X = useTransform(smx, (v) => v * -34);
-  const tag4Y = useTransform(smy, (v) => v * -22);
+  // Intro overlay fades out as scroll starts; outro fades in near the end
+  const introOpacity = useTransform(smoothProgress, [0, 0.12], [1, 0]);
+  const introY = useTransform(smoothProgress, [0, 0.12], [0, -40]);
+  const outroOpacity = useTransform(smoothProgress, [0.78, 0.95], [0, 1]);
+  const outroY = useTransform(smoothProgress, [0.78, 0.95], [40, 0]);
+  const progressWidth = useTransform(smoothProgress, (v) => `${(v * 100).toFixed(2)}%`);
 
-  // Scroll parallax
-  const { scrollY } = useScroll();
-  const scrollBottle = useTransform(scrollY, [0, 800], [0, -120]);
-  const scrollBg = useTransform(scrollY, [0, 800], [0, 200]);
-  const scrollGiant = useTransform(scrollY, [0, 800], [0, -260]);
-  const scrollFade = useTransform(scrollY, [0, 600], [1, 0]);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onMeta = () => { setDuration(v.duration || 0); setReady(true); };
+    const onCanPlay = () => setReady(true);
+    v.addEventListener("loadedmetadata", onMeta);
+    v.addEventListener("canplay", onCanPlay);
+    return () => {
+      v.removeEventListener("loadedmetadata", onMeta);
+      v.removeEventListener("canplay", onCanPlay);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!duration) return;
+    const unsub = smoothProgress.on("change", (p) => {
+      const v = videoRef.current;
+      if (!v) return;
+      const t = Math.max(0, Math.min(duration - 0.001, p * duration));
+      try { v.currentTime = t; } catch {}
+    });
+    return () => unsub();
+  }, [duration, smoothProgress]);
 
   useEffect(() => {
     const id = setInterval(() => setRoleIdx((i) => (i + 1) % roles.length), 2500);
     return () => clearInterval(id);
   }, []);
 
-  const onMove = (e: React.MouseEvent) => {
-    const rect = heroRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    mx.set((e.clientX - rect.left) / rect.width - 0.5);
-    my.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-  const onLeave = () => { mx.set(0); my.set(0); };
-
   return (
     <section
       id="top"
-      ref={heroRef}
-      onMouseMove={onMove}
-      onMouseLeave={onLeave}
-      className="relative min-h-screen pt-28 pb-16 md:pt-32 md:pb-24 overflow-hidden bg-cream"
+      ref={stageRef}
+      className="relative bg-cream"
+      style={{ height: "500vh" }}
     >
-      {/* Soft dotted texture */}
-      <motion.div
-        style={{ y: scrollBg }}
-        className="absolute inset-0 opacity-[0.08] pointer-events-none"
-      >
-        <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(#3D2B1F 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
-      </motion.div>
+      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-cream">
+        {/* Soft brand backdrop */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08]"
+             style={{ backgroundImage: "radial-gradient(#3D2B1F 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+        <div className="pointer-events-none absolute -top-32 -left-32 w-[560px] h-[560px] rounded-full blur-3xl"
+             style={{ background: "radial-gradient(circle, #E8730A55, transparent 70%)" }} />
+        <div className="pointer-events-none absolute -bottom-32 -right-32 w-[560px] h-[560px] rounded-full blur-3xl"
+             style={{ background: "radial-gradient(circle, #4A7C3F44, transparent 70%)" }} />
 
-      {/* Color blobs */}
-      <motion.div
-        style={{ x: blobX, y: blobY }}
-        className="pointer-events-none absolute top-[8%] left-[10%] w-[520px] h-[520px] rounded-full blur-3xl opacity-60"
-      >
-        <div className="w-full h-full rounded-full" style={{ background: "radial-gradient(circle, #E8730A66, transparent 70%)" }} />
-      </motion.div>
-      <motion.div
-        style={{ x: useTransform(smx, v => v * -36), y: useTransform(smy, v => v * -36) }}
-        className="pointer-events-none absolute bottom-[5%] right-[8%] w-[560px] h-[560px] rounded-full blur-3xl opacity-50"
-      >
-        <div className="w-full h-full rounded-full" style={{ background: "radial-gradient(circle, #4A7C3F55, transparent 70%)" }} />
-      </motion.div>
+        {/* Scroll-scrubbed video — fills viewport, contains aspect */}
+        <video
+          ref={videoRef}
+          src={heroVideoAsset.url}
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-contain"
+          aria-label="Sea Buckthorn bottle rotation"
+        />
 
-      {/* Giant outline word in background */}
-      <motion.div
-        style={{ y: scrollGiant, opacity: scrollFade }}
-        aria-hidden
-        className="absolute inset-x-0 top-[18%] flex justify-center pointer-events-none select-none"
-      >
-        <span
-          className="font-display italic font-black leading-none text-[28vw] md:text-[22vw] tracking-tighter"
-          style={{
-            WebkitTextStroke: "1.5px rgba(61,43,31,0.12)",
-            color: "transparent",
-          }}
+        {/* Corner label */}
+        <div className="absolute top-6 left-6 md:top-8 md:left-10 z-10 flex items-center gap-2 text-[11px] md:text-xs uppercase tracking-[0.18em] text-earth/60">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-brand" />
+          Sea Buckthorn · Scroll to rotate
+        </div>
+
+        {/* Intro overlay (fades out on scroll) */}
+        <motion.div
+          style={{ opacity: introOpacity, y: introY }}
+          className="absolute inset-x-0 top-0 z-10 pt-28 md:pt-32 pointer-events-none"
         >
-          ART
-        </span>
-      </motion.div>
-
-      {/* Top badge */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-30 flex justify-center"
-      >
-        <span className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-earth/10 px-4 py-1.5 text-xs font-medium text-earth/80 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-green-brand animate-pulse" />
-          Food &amp; Beverage Consulting · Est. Excellence
-        </span>
-      </motion.div>
-
-      {/* CENTERPIECE: bottle + overlapping text */}
-      <div className="relative z-10 mt-8 md:mt-10 mx-auto max-w-[1200px] px-6">
-        <div className="relative flex items-center justify-center h-[560px] md:h-[680px]">
-
-          {/* Glow behind bottle */}
-          <motion.div
-            style={{ x: bottleX, y: bottleY }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          >
-            <div className="w-[460px] h-[460px] md:w-[560px] md:h-[560px] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, #E8730A99, transparent 65%)" }} />
-          </motion.div>
-
-          {/* TEXT BEHIND bottle: "The" + "of" */}
-          <motion.div
-            style={{ x: textBackX, y: scrollBg }}
-            className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
-          >
-            <div className="w-full flex items-start justify-between max-w-[900px]">
-              <motion.span
-                initial={{ opacity: 0, x: -40 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2, duration: 0.8 }}
-                className="font-display italic text-earth/80 text-5xl md:text-7xl lg:text-8xl leading-none -translate-y-4"
-              >
-                The
-              </motion.span>
-              <motion.span
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.35, duration: 0.8 }}
-                className="font-display italic text-earth/80 text-5xl md:text-7xl lg:text-8xl leading-none translate-y-2"
-              >
-                of
-              </motion.span>
-            </div>
-          </motion.div>
-
-          {/* THE BOTTLE */}
-          <motion.img
-            initial={{ opacity: 0, y: 60, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-            style={{ x: bottleX, y: useTransform([bottleY, scrollBottle], ([a, b]) => (a as number) + (b as number)) }}
-            src={heroBottle}
-            alt="Sea Buckthorn premium beverage bottle"
-            className="relative z-20 h-[520px] md:h-[680px] w-auto object-contain animate-float-bottle drop-shadow-[0_40px_60px_rgba(232,115,10,0.35)]"
-          />
-
-          {/* TEXT IN FRONT of bottle: ART (huge, splits across) & Delicious / Innovations */}
-          <motion.div
-            style={{ x: textFrontX }}
-            className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none"
-          >
-            {/* ART headline crossing the bottle */}
-            <motion.h1
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.45, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="font-display font-black italic text-amber-brand text-[26vw] md:text-[20vw] lg:text-[17rem] leading-[0.8] tracking-tighter mix-blend-multiply"
-              style={{ textShadow: "0 8px 30px rgba(232,115,10,0.35)" }}
-            >
-              ART
-            </motion.h1>
-          </motion.div>
-
-          {/* Bottom overlay text */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 0.8 }}
-            className="absolute z-30 bottom-2 md:bottom-6 left-1/2 -translate-x-1/2 text-center pointer-events-none"
-          >
-            <div className="font-display font-bold text-earth text-3xl md:text-5xl lg:text-6xl leading-tight">
+          <div className="max-w-3xl mx-auto px-6 text-center">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur border border-earth/10 px-4 py-1.5 text-xs font-medium text-earth/80 shadow-sm pointer-events-auto">
+              <span className="w-2 h-2 rounded-full bg-green-brand animate-pulse" />
+              Food &amp; Beverage Consulting · Est. Excellence
+            </span>
+            <h1 className="mt-6 font-display font-black italic text-earth text-5xl md:text-7xl lg:text-8xl leading-[0.95] tracking-tight">
+              The <span className="text-amber-brand">ART</span> of<br />
               Delicious <span className="italic text-green-brand">Innovations.</span>
+            </h1>
+            <div className="mt-5 h-8 overflow-hidden relative text-base md:text-xl font-display italic text-green-brand">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={roleIdx}
+                  initial={{ y: 24, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -24, opacity: 0 }}
+                  transition={{ duration: 0.45 }}
+                >
+                  {roles[roleIdx]}
+                </motion.div>
+              </AnimatePresence>
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
 
-          {/* Floating tags — parallax */}
-          <motion.div style={{ x: tag1X, y: tag1Y }} className="absolute z-40 top-10 left-2 md:left-8 animate-tag-1">
-            <Tag color="amber-brand">🌱 Sea Buckthorn</Tag>
-          </motion.div>
-          <motion.div style={{ x: tag2X, y: tag2Y }} className="absolute z-40 top-1/3 right-2 md:right-6 animate-tag-2">
-            <Tag color="green-brand">Natural Extract</Tag>
-          </motion.div>
-          <motion.div style={{ x: tag3X, y: tag3Y }} className="absolute z-40 bottom-28 left-0 md:left-6 animate-tag-3">
-            <Tag color="teal-brand">Craft Formula</Tag>
-          </motion.div>
-          <motion.div style={{ x: tag4X, y: tag4Y }} className="absolute z-40 bottom-16 right-0 md:right-8 animate-tag-1">
-            <Tag color="berry">✓ FSSAI Approved</Tag>
-          </motion.div>
+        {/* Outro overlay (fades in near end) */}
+        <motion.div
+          style={{ opacity: outroOpacity, y: outroY }}
+          className="absolute inset-x-0 top-0 z-10 pt-28 md:pt-32 pointer-events-none"
+        >
+          <div className="max-w-3xl mx-auto px-6 text-center">
+            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-brand">360° Crafted</span>
+            <h2 className="mt-3 font-display font-black italic text-earth text-4xl md:text-6xl leading-tight">
+              Every angle <span className="text-green-brand">engineered</span>.
+            </h2>
+            <p className="mt-4 text-base md:text-lg text-earth/70 max-w-xl mx-auto">
+              From recipe to retail — we partner with founders, brands and manufacturers to craft food &amp; beverage products that win on taste, science and shelf.
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Bottom HUD */}
+        <div className="absolute inset-x-0 bottom-0 z-10 px-6 md:px-10 pb-6 md:pb-8 flex items-center gap-4">
+          <div className="flex-1 h-[2px] bg-earth/15 rounded-full overflow-hidden">
+            <motion.div style={{ width: progressWidth }} className="h-full bg-amber-brand" />
+          </div>
+          <span className="text-[11px] md:text-xs uppercase tracking-[0.14em] text-earth/60 tabular-nums">
+            {ready ? "Scroll" : "Loading…"}
+          </span>
         </div>
 
-        {/* Subline + CTAs + stats */}
-        <div className="relative z-30 mt-6 md:mt-8 flex flex-col items-center text-center max-w-3xl mx-auto">
-          <div className="h-9 overflow-hidden relative text-xl md:text-2xl font-display italic text-green-brand">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={roleIdx}
-                initial={{ y: 24, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -24, opacity: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                {roles[roleIdx]}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-          <p className="mt-3 text-base md:text-lg text-earth/70 max-w-xl">
-            From recipe to retail — we partner with founders, brands and manufacturers to craft food &amp; beverage products that win on taste, science and shelf.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-4 justify-center">
-            <a href="#services" className="inline-flex items-center justify-center rounded-full bg-amber-brand px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-amber-brand/30 hover:scale-105 transition-transform">
-              Explore Services
-            </a>
-            <a href="#contact" className="inline-flex items-center justify-center rounded-full border-2 border-green-brand px-7 py-3.5 text-sm font-semibold text-green-brand hover:bg-green-brand hover:text-white transition-colors">
-              Speak With Expert
-            </a>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-earth/70 justify-center">
-            <span><b className="text-earth font-display text-lg">100+</b> Products Launched</span>
-            <span className="text-earth/30">|</span>
-            <span><b className="text-earth font-display text-lg">60%</b> Revenue Growth</span>
-            <span className="text-earth/30">|</span>
-            <span><b className="text-earth font-display text-lg">40%</b> Cost Saved</span>
-          </div>
-        </div>
+        {/* Floating CTAs at very bottom of section */}
+        <motion.div
+          style={{ opacity: outroOpacity }}
+          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 flex flex-wrap gap-3 justify-center"
+        >
+          <a href="#services" className="inline-flex items-center justify-center rounded-full bg-amber-brand px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-brand/30 hover:scale-105 transition-transform">
+            Explore Services
+          </a>
+          <a href="#contact" className="inline-flex items-center justify-center rounded-full border-2 border-green-brand bg-white/80 backdrop-blur px-6 py-3 text-sm font-semibold text-green-brand hover:bg-green-brand hover:text-white transition-colors">
+            Speak With Expert
+          </a>
+        </motion.div>
       </div>
     </section>
-  );
-}
-
-function Tag({ color, children }: { color: string; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs md:text-sm font-semibold shadow-lg border border-earth/5" style={{ color: `var(--${color})` }}>
-      {children}
-    </span>
   );
 }
 

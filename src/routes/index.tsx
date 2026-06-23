@@ -119,8 +119,6 @@ function Hero() {
           muted
           playsInline
           preload="auto"
-          // @ts-expect-error - non-standard but useful hint
-          disableRemotePlayback
           className="absolute inset-0 w-full h-full object-contain"
           aria-label="Sea Buckthorn bottle rotation"
         />
